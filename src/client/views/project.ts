@@ -7,7 +7,7 @@ import { api } from '../api'
 import { I } from '../icons'
 import { t } from '../i18n'
 import { useAsync } from '../util'
-import { BranchPicker, ErrorNote, IconButton, Spinner, type RefOption } from '../ui'
+import { BranchPicker, Button, ErrorNote, IconButton, Spinner, type RefOption } from '../ui'
 import type { ProjectDetailResponse } from '../types'
 import { FilesTab } from './files'
 import { IssuesTab } from './issues'
@@ -29,6 +29,9 @@ const ALL_REFS = '__all__'
 
 export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: ProjectViewProps) {
   const [tab, setTab] = useState<TabId>('overview')
+  const [cloneOpen, setCloneOpen] = useState(false)
+  const [copied, setCopied] = useState('')
+  const cloneBox = useRef<HTMLDivElement | null>(null)
   const storageKey = `dsh-gitlab-workbench:branch:${instanceId}:${projectPath}`
   const [ref, setRef] = useState<string>(() => {
     try {
@@ -88,6 +91,34 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
     }
   }, [storageKey, ref])
 
+  useEffect(() => {
+    if (!cloneOpen) return undefined
+    const onDocument = (event: any) => {
+      if (cloneBox.current && !cloneBox.current.contains(event.target)) setCloneOpen(false)
+    }
+    document.addEventListener('mousedown', onDocument)
+    return () => document.removeEventListener('mousedown', onDocument)
+  }, [cloneOpen])
+
+  const copyCloneUrl = async (label: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const area = document.createElement('textarea')
+      area.value = url
+      document.body.appendChild(area)
+      area.select()
+      try {
+        document.execCommand('copy')
+      } catch {
+        // Selection is still there for a manual copy.
+      }
+      area.remove()
+    }
+    setCopied(label)
+    setTimeout(() => setCopied(''), 1500)
+  }
+
   const refOptions: RefOption[] = [
     { name: '', kind: 'all' },
     ...(branches.data?.items ?? []).map((branch: any) => ({ name: branch.name, kind: 'branch' as const })),
@@ -143,6 +174,41 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
         h(
           'div',
           { className: 'gw-head-actions' },
+          project?.http_url_to_repo || project?.ssh_url_to_repo
+            ? h(
+                'div',
+                { className: 'gw-clone', ref: cloneBox },
+                h(
+                  Button,
+                  { kind: 'ghost', small: true, onClick: () => setCloneOpen((current) => !current), title: t('clone') },
+                  h(I.copy, { size: 13 }),
+                  t('clone'),
+                ),
+                cloneOpen
+                  ? h(
+                      'div',
+                      { className: 'gw-clone-pop' },
+                      ([['HTTPS', project.http_url_to_repo], ['SSH', project.ssh_url_to_repo]] as Array<[string, string | undefined]>).map(([label, url]) =>
+                        url
+                          ? h(
+                              'div',
+                              { key: label, className: 'gw-clone-row' },
+                              h('span', { className: 'gw-clone-label' }, label),
+                              h('input', {
+                                className: 'gw-input gw-clone-url',
+                                readOnly: true,
+                                value: url,
+                                onFocus: (event: any) => event.target.select(),
+                                'aria-label': `${label} ${t('clone')}`,
+                              }),
+                              h(Button, { kind: 'ghost', small: true, onClick: () => copyCloneUrl(label, url) }, copied === label ? t('copied') : t('copy')),
+                            )
+                          : null,
+                      ),
+                    )
+                  : null,
+              )
+            : null,
           project?.web_url
             ? h('a', { className: 'gw-btn is-ghost', href: project.web_url, target: '_blank', rel: 'noreferrer noopener' }, t('openInGitLab'), h(I.external, { size: 13 }))
             : null,

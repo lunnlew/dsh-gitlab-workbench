@@ -24,6 +24,8 @@ const PROJECTS = [
     description: 'A demo project served by the mock GitLab. It has pipelines, merge requests and issues.',
     default_branch: 'main',
     visibility: 'private',
+    http_url_to_repo: `http://127.0.0.1:${PORT}/demo/project.git`,
+    ssh_url_to_repo: 'git@127.0.0.1:demo/project.git',
     archived: false,
     star_count: 12,
     forks_count: 3,

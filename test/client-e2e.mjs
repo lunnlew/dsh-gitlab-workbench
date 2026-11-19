@@ -165,6 +165,17 @@ buttons('.gw-project')[0].click()
 await waitFor('project overview', () => Boolean(container.querySelector('.gw-stats')))
 ok('project overview')
 
+await clickButton('克隆地址', '.gw-clone button')
+await waitFor('clone popover', () => Boolean(container.querySelector('.gw-clone-pop')))
+const cloneUrls = [...container.querySelectorAll('.gw-clone-url')].map((input) => input.value)
+expect(
+  cloneUrls.includes('http://127.0.0.1:18080/demo/project.git') && cloneUrls.includes('git@127.0.0.1:demo/project.git'),
+  'the clone popover should show HTTPS and SSH urls',
+)
+ok('clone urls')
+container.querySelector('.gw-clone button').click()
+await tick()
+
 await waitFor('branch picker', () => container.querySelector('.gw-branch-picker .gw-branch-name')?.textContent === 'main')
 ok('branch picker beside the project name')
 

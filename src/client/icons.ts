@@ -93,6 +93,7 @@ export const I: Record<string, (p?: any) => any> = {
   x: (p?: IconOptions) => icon(['M18 6L6 18', 'M6 6l12 12'], p),
   plus: (p?: IconOptions) => icon(['M12 5v14', 'M5 12h14'], p),
   trash: (p?: IconOptions) => icon(['M3 6h18', 'M8 6V4h8v2', 'M19 6l-1 14H6L5 6', 'M10 11v6', 'M14 11v6'], p),
+  copy: (p?: IconOptions) => icon(['M9 9h10v10H9Z', 'M5 15V5h10'], p),
   check: (p?: IconOptions) => icon(['M20 6L9 17l-5-5'], p),
   info: (p?: IconOptions) => icon(['M12 12m-8.5 0a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0', 'M12 11v5'], p),
 }
