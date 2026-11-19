@@ -1,0 +1,20 @@
+{
+  "name": "dsh-gitlab-workbench-host",
+  "private": true,
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "sourceMap": false,
+    "rootDir": "src/host",
+    "outDir": "dist/host",
+    "types": ["node"]
+  },
+  "include": ["src/host/**/*.ts"]
+}

@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "GitLab 工作台",
+    "description": "左侧栏入口的 GitLab 工作台，支持多个自托管实例：项目、分支、提交、文件、合并请求、议题与 CI/CD 流水线，每个实例使用独立的个人访问令牌。",
+    "detail": "docs/DETAIL.md"
+  }
+}

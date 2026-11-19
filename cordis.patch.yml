@@ -1,0 +1,4 @@
+- insert:
+    - id: gitlab-workbench
+      name: '@karoy/dsh-gitlab-workbench'
+      config: {}

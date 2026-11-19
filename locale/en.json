@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "GitLab workbench",
+    "description": "A left-sidebar workbench for several self-managed GitLab instances: projects, branches, commits, files, merge requests, issues and CI/CD pipelines, authenticated with a personal access token per instance.",
+    "detail": "docs/DETAIL.md"
+  }
+}
