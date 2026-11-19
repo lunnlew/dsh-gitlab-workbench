@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Instances of the GitLab workbench.
  *
  * The instance list is a small JSON document under the DSH home directory; the
@@ -156,7 +156,7 @@ export function createInstanceStore({ ctx, logger, dataDir }: { ctx: PluginConte
     if (!service || typeof service.readRecord !== 'function') return undefined
     try {
       const record: CredentialRecord | undefined = await service.readRecord(credentialKeyFor(id))
-      if (!record || record.kind !== 'pat') return undefined
+      if (!record || (record.kind !== 'grant' && record.kind !== 'pat')) return undefined
       const payload = record.payload as TokenPayload | undefined
       if (!payload || typeof payload.token !== 'string' || payload.token === '') return undefined
       return payload
@@ -173,7 +173,9 @@ export function createInstanceStore({ ctx, logger, dataDir }: { ctx: PluginConte
     if (!service || typeof service.modifyRecord !== 'function') {
       throw Object.assign(new Error('The host credential service is unavailable.'), { code: 'credentials_unavailable' })
     }
-    await service.modifyRecord(credentialKeyFor(id), async () => ({ kind: 'pat', payload }))
+    // DSH credentials only admit `api-key` and `grant` records; a personal
+    // access token is opaque data, so it travels as a grant payload.
+    await service.modifyRecord(credentialKeyFor(id), async () => ({ kind: 'grant', payload }))
   }
 
   async function removeToken(id: string): Promise<void> {
