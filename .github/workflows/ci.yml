@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and type-check
+        run: |
+          npm run build
+          npm run typecheck
+
+      - name: Test the host routes, the client bundle and the panel
+        run: |
+          node test/mock-gitlab.js 18080 &
+          mock=$!
+          trap 'kill "$mock" 2>/dev/null || true' EXIT
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "the mock GitLab did not start on 18080"
+            exit 1
+          fi
+          npm run test:host
+          npm run test:client
+          npm run test:e2e
+
+      - name: Check the published tarball contents
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP" > /dev/null
+          tarball=$(ls "$RUNNER_TEMP"/karoy-dsh-gitlab-workbench-*.tgz | head -1)
+          for path in package.json dist/client.js dist/host/index.js cordis.patch.yml \
+            locale/en.json locale/zh.json docs/DETAIL.md icon.svg README.md; do
+            if ! tar -tzf "$tarball" | grep -qx "package/$path"; then
+              echo "missing from the tarball: $path"
+              exit 1
+            fi
+          done
+          echo "$(tar -tzf "$tarball" | wc -l) files packed"

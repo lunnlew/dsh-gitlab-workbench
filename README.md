@@ -72,11 +72,36 @@ Tokens are stored by the host credential service under `gitlab-workbench/<instan
 
 ## Tests
 
-The suite runs against the bundled mock GitLab:
+The suite runs against the bundled mock GitLab, which must be listening on
+port 18080 first:
 
 ```powershell
-node test/mock-gitlab.js 18080
+npm run mock             # node test/mock-gitlab.js 18080 (keep it running)
 npm test                 # build, host routes, client smoke, jsdom end-to-end
 ```
 
-`test/preview-server.mjs` serves the built panel with a fake shell for a quick browser look.
+`npm test` runs the three suites in order: `npm run test:host`,
+`npm run test:client`, `npm run test:e2e`. They also run on their own once the
+mock is up. `test/preview-server.mjs` serves the built panel with a fake shell
+for a quick browser look.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`: it
+installs with `npm ci`, builds, type-checks, starts the mock GitLab, runs the
+three suites on Node 22 and 24, and checks that the tarball `npm pack` would
+publish contains `dist/`, the patch, both locales, the detail document, the
+icon and the README (`dist/` is not committed, so a missing build must fail
+here instead of publishing an empty plugin).
+
+## Release
+
+`.github/workflows/npm-publish.yml` publishes on a published GitHub Release:
+
+1. Bump `version` in `package.json` (and refresh the lockfile root with
+   `npm install --package-lock-only`), commit and push.
+2. Create a GitHub Release whose tag is `v<version>` — the workflow fails when
+   the tag and `package.json` disagree, or when that version is already on npm.
+3. The `test` job runs first; then `npm publish --access public` runs with the
+   repository's `NPM_TOKEN` secret. `prepack` rebuilds `dist/` for the tarball.
+4. Verify with `npm view @karoy/dsh-gitlab-workbench version`.

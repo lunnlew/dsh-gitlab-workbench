@@ -1,0 +1,102 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and type-check
+        run: |
+          npm run build
+          npm run typecheck
+
+      - name: Test the host routes, the client bundle and the panel
+        run: |
+          node test/mock-gitlab.js 18080 &
+          mock=$!
+          trap 'kill "$mock" 2>/dev/null || true' EXIT
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "the mock GitLab did not start on 18080"
+            exit 1
+          fi
+          npm run test:host
+          npm run test:client
+          npm run test:e2e
+
+  publish:
+    name: Publish to npm
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Check the release tag matches package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "package.json is $version but the release tag is $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+      - name: Check the version is not published yet
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "@karoy/dsh-gitlab-workbench@$version" version > /dev/null 2>&1; then
+            echo "@karoy/dsh-gitlab-workbench@$version is already published"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify the published version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          for _ in $(seq 1 30); do
+            if [ "$(npm view "@karoy/dsh-gitlab-workbench@$version" version 2>/dev/null)" = "$version" ]; then
+              echo "the registry reports @karoy/dsh-gitlab-workbench@$version"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the registry does not report $version yet"
+          exit 1

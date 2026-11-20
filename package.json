@@ -1,9 +1,30 @@
 {
   "name": "@karoy/dsh-gitlab-workbench",
   "version": "0.2.1",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "GitLab workbench: a left-sidebar entry and a global panel for several self-managed GitLab instances, focused on projects and CI pipelines.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "gitlab",
+    "ci",
+    "pipelines",
+    "merge-requests"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lunnlew/dsh-gitlab-workbench.git"
+  },
+  "homepage": "https://github.com/lunnlew/dsh-gitlab-workbench#readme",
+  "bugs": {
+    "url": "https://github.com/lunnlew/dsh-gitlab-workbench/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./dist/host/index.js",
     "./client": "./dist/client.js",
@@ -31,12 +52,21 @@
       ]
     }
   },
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.2-rc.5"
+  },
   "scripts": {
     "build": "npm run build:host && npm run build:client",
     "build:host": "tsc -p tsconfig.host.json",
     "build:client": "node build.mjs",
     "typecheck": "tsc -p tsconfig.client.json --noEmit && tsc -p tsconfig.host.json --noEmit",
-    "test": "npm run build && node test/host-check.js 18080 && node test/client-check.cjs && node test/client-e2e.mjs 18080",
+    "mock": "node test/mock-gitlab.js 18080",
+    "test:host": "node test/host-check.js 18080",
+    "test:client": "node test/client-check.cjs",
+    "test:e2e": "node test/client-e2e.mjs 18080",
+    "test": "npm run build && npm run test:host && npm run test:client && npm run test:e2e",
+    "prepack": "npm run build",
     "preview": "node test/preview-server.mjs 18082 18080"
   },
   "devDependencies": {
@@ -47,6 +77,5 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2"
-  },
-  "license": "MIT"
+  }
 }
