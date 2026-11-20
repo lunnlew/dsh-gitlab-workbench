@@ -3,6 +3,7 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -64,6 +65,7 @@ jobs:
           cache: npm
 
       - name: Check the release tag matches package.json
+        if: github.event_name == 'release'
         run: |
           version=$(node -p "require('./package.json').version")
           tag="${GITHUB_REF_NAME#v}"
@@ -72,31 +74,38 @@ jobs:
             exit 1
           fi
 
-      - name: Check the version is not published yet
-        run: |
-          version=$(node -p "require('./package.json').version")
-          if npm view "@karoy/dsh-gitlab-workbench@$version" version > /dev/null 2>&1; then
-            echo "@karoy/dsh-gitlab-workbench@$version is already published"
-            exit 1
-          fi
-
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve the publish state
+        id: state
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "@karoy/dsh-gitlab-workbench@$version" version --prefer-online > /dev/null 2>&1; then
+            echo "already on the registry: @karoy/dsh-gitlab-workbench@$version — nothing to publish"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
+        if: steps.state.outputs.needed == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # A brand-new package name stays "processing" on the registry for a few
+      # minutes after a successful publish, so the window is five minutes.
       - name: Verify the published version
         run: |
           version=$(node -p "require('./package.json').version")
-          for _ in $(seq 1 30); do
-            if [ "$(npm view "@karoy/dsh-gitlab-workbench@$version" version 2>/dev/null)" = "$version" ]; then
+          for _ in $(seq 1 60); do
+            published=$(npm view "@karoy/dsh-gitlab-workbench@$version" version --prefer-online 2>/dev/null || true)
+            if [ "$published" = "$version" ]; then
               echo "the registry reports @karoy/dsh-gitlab-workbench@$version"
               exit 0
             fi
-            sleep 2
+            sleep 5
           done
-          echo "the registry does not report $version yet"
+          echo "the registry does not report $version within 5 minutes"
           exit 1

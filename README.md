@@ -101,7 +101,13 @@ here instead of publishing an empty plugin).
 1. Bump `version` in `package.json` (and refresh the lockfile root with
    `npm install --package-lock-only`), commit and push.
 2. Create a GitHub Release whose tag is `v<version>` — the workflow fails when
-   the tag and `package.json` disagree, or when that version is already on npm.
+   the tag and `package.json` disagree.
 3. The `test` job runs first; then `npm publish --access public` runs with the
    repository's `NPM_TOKEN` secret. `prepack` rebuilds `dist/` for the tarball.
 4. Verify with `npm view @karoy/dsh-gitlab-workbench version`.
+
+A brand-new package name stays “processing” on the registry for a few minutes
+after a successful publish, so the workflow polls for up to five minutes.
+Publishing is idempotent: when the version is already on the registry the
+publish step is skipped, so **Run workflow** (`workflow_dispatch`) re-checks an
+already-published version instead of failing.
