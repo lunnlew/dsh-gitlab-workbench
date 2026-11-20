@@ -8,13 +8,29 @@
  *
  * Build: `npm run build` (tsc for this half, esbuild for the client).
  */
+import { readFileSync } from 'node:fs'
 import { createGitLab } from './gitlab.js'
 import { createRoutes, ROUTE_PREFIX } from './routes.js'
 import { createInstanceStore } from './store.js'
 import type { PluginContext } from './types.js'
 
-/** The plugin version reported by the routes and the log line. */
-export const VERSION = '0.2.1'
+/**
+ * The plugin version reported by the routes and the log line.
+ *
+ * It is read from the installed `package.json` instead of being written here,
+ * so a release bump cannot leave this copy stale. The build writes this file
+ * to `dist/host/`, so the manifest is two directories up; `new URL` rather
+ * than a `require()` specifier also keeps it independent of the `exports` table.
+ */
+export const VERSION: string = (() => {
+  try {
+    const text = readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+    const manifest = JSON.parse(text) as { version?: unknown }
+    return typeof manifest.version === 'string' && manifest.version !== '' ? manifest.version : '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+})()
 
 /** The route table needs the web server. */
 export const inject = ['webServer']
