@@ -106,8 +106,10 @@ here instead of publishing an empty plugin).
    repository's `NPM_TOKEN` secret. `prepack` rebuilds `dist/` for the tarball.
 4. Verify with `npm view @karoy/dsh-gitlab-workbench version`.
 
-A brand-new package name stays “processing” on the registry for a few minutes
-after a successful publish, so the workflow polls for up to five minutes.
-Publishing is idempotent: when the version is already on the registry the
-publish step is skipped, so **Run workflow** (`workflow_dispatch`) re-checks an
+A new package name goes through npm's staged publishing: the registry answers
+with a `0.0.0-stage` placeholder and “being processed”, then serves the real
+version a few minutes later (about five minutes for the first release here).
+The workflow therefore polls for up to ten minutes, and publishing is
+idempotent — when the version is already on the registry the publish step is
+skipped, so **Run workflow** (`workflow_dispatch`) re-checks an
 already-published version instead of failing.

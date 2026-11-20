@@ -94,12 +94,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # A brand-new package name stays "processing" on the registry for a few
-      # minutes after a successful publish, so the window is five minutes.
+      # A new package name goes through npm's staged publishing: the registry
+      # creates a `0.0.0-stage` placeholder, reports "being processed", and
+      # only serves the real version a few minutes later (about five minutes
+      # for the first release here), so the window is ten minutes.
       - name: Verify the published version
         run: |
           version=$(node -p "require('./package.json').version")
-          for _ in $(seq 1 60); do
+          for _ in $(seq 1 120); do
             published=$(npm view "@karoy/dsh-gitlab-workbench@$version" version --prefer-online 2>/dev/null || true)
             if [ "$published" = "$version" ]; then
               echo "the registry reports @karoy/dsh-gitlab-workbench@$version"
@@ -107,5 +109,5 @@ jobs:
             fi
             sleep 5
           done
-          echo "the registry does not report $version within 5 minutes"
+          echo "the registry does not report $version within ten minutes"
           exit 1
