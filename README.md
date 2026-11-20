@@ -113,3 +113,7 @@ The workflow therefore polls for up to ten minutes, and publishing is
 idempotent — when the version is already on the registry the publish step is
 skipped, so **Run workflow** (`workflow_dispatch`) re-checks an
 already-published version instead of failing.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

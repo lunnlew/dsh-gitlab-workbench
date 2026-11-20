@@ -59,7 +59,7 @@ jobs:
         run: |
           npm pack --pack-destination "$RUNNER_TEMP" > /dev/null
           tarball=$(ls "$RUNNER_TEMP"/karoy-dsh-gitlab-workbench-*.tgz | head -1)
-          for path in package.json dist/client.js dist/host/index.js cordis.patch.yml \
+          for path in package.json LICENSE dist/client.js dist/host/index.js cordis.patch.yml \
             locale/en.json locale/zh.json docs/DETAIL.md icon.svg README.md; do
             if ! tar -tzf "$tarball" | grep -qx "package/$path"; then
               echo "missing from the tarball: $path"
