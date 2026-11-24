@@ -202,6 +202,21 @@ await waitFor('back to first project', () => container.querySelector('.gw-h1')?.
 await waitFor('branch restored', () => container.querySelector('.gw-branch-picker .gw-branch-name')?.textContent === 'chore/ci-cache')
 ok('branch remembered per project')
 
+// A project with CI/CD switched off answers the pipelines endpoint with 403.
+// That is not a token problem: the tab disappears and the overview says how to
+// turn CI/CD on, instead of showing "the token is not allowed to read this".
+const ciOffProject = buttons('.gw-project').find((button) => (button.textContent ?? '').includes('ci-off'))
+expect(Boolean(ciOffProject), 'the rail should list the CI-off project')
+ciOffProject.click()
+await waitFor('ci-off project', () => container.querySelector('.gw-h1')?.textContent === 'ci-off')
+await waitFor('pipeline tab hidden', () => !buttons('.gw-tabs button').some((button) => button.textContent === '流水线'))
+await waitFor('CI/CD off explanation', () => text().includes('打开 CI/CD'))
+const ciOffTabs = buttons('.gw-tabs button').map((button) => button.textContent)
+expect(ciOffTabs.includes('概览') && ciOffTabs.includes('文件'), 'the other tabs should stay')
+ok('CI/CD off hides the pipeline tab')
+buttons('.gw-project')[0].click()
+await waitFor('back to the first project', () => container.querySelector('.gw-h1')?.textContent === 'project')
+
 container.querySelector('.gw-branch-picker .gw-branch').click()
 await waitFor('branch popover for tag', () => Boolean(container.querySelector('.gw-popover')))
 const tagItem = popoverItems().find((item) => item.textContent === 'v1.0.0')

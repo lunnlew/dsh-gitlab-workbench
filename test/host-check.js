@@ -112,7 +112,7 @@ const list = await call('instances')
 check('instances has token', list.data.items.some((item) => item.id === id && item.hasToken))
 
 const projects = await call('projects', { query: { id, search: 'demo' } })
-check('projects', projects.ok === true && projects.data.items.length === 2, projects.error)
+check('projects', projects.ok === true && projects.data.items.length === 5, projects.error)
 
 const project = await call('project', { query: { id, path: 'demo/project' } })
 check('project detail', project.ok === true && project.data.project.path_with_namespace === 'demo/project', project.error)
@@ -135,6 +135,32 @@ check('pipelines', pipelines.ok === true && pipelines.data.items.length === 3, p
 
 const failed = await call('pipelines', { query: { id, path: 'demo/project', status: 'failed' } })
 check('pipeline filter', failed.ok === true && failed.data.items.length === 1, failed.error)
+
+// GitLab answers 403 both for a token that cannot read pipelines and for a
+// project that simply has none; only the project payload separates them.
+const ciOff = await call('pipelines', { query: { id, path: 'demo/ci-off' } })
+check(
+  'CI/CD off is reported, not a token error',
+  ciOff.ok === true && ciOff.data.ciDisabled === true && ciOff.data.reason === 'ci_disabled' && ciOff.data.items.length === 0,
+  ciOff.error,
+)
+
+const ciOffFiltered = await call('pipelines', { query: { id, path: 'demo/ci-off', status: 'failed' } })
+check('CI/CD off survives a status filter', ciOffFiltered.ok === true && ciOffFiltered.data.ciDisabled === true, ciOffFiltered.error)
+
+const emptyRepo = await call('pipelines', { query: { id, path: 'demo/empty' } })
+check(
+  'an empty repository is reported as such',
+  emptyRepo.ok === true && emptyRepo.data.ciDisabled === true && emptyRepo.data.reason === 'empty_repo',
+  emptyRepo.error,
+)
+
+const denied = await call('pipelines', { query: { id, path: 'demo/locked' } })
+check(
+  'a real pipeline 403 still fails',
+  denied.ok === false && denied.status === 403 && denied.error.code === 'forbidden',
+  denied.error,
+)
 
 const pipeline = await call('pipeline', { query: { id, path: 'demo/project', pipelineId: 9001 } })
 check('pipeline detail', pipeline.ok === true && pipeline.data.jobs.length === 4, pipeline.error)

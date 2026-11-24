@@ -247,6 +247,36 @@ export function createRoutes({ ctx, store, gitlab, version }: RoutesDeps): Route
     return encodeURIComponent(project)
   }
 
+  /**
+   * Why GitLab refuses the pipelines endpoint for a project, when the project
+   * itself says why.
+   *
+   * A project with CI/CD switched off, or a repository without a commit yet,
+   * answers the pipelines endpoint with 403 — the same status a token missing
+   * the scope gets. Reading the project separates the two, so the panel can
+   * say "this project has no pipelines" instead of blaming the token.
+   */
+  async function ciOffReason(instanceId: string, project: string, error: unknown): Promise<'ci_disabled' | 'empty_repo' | null> {
+    if ((error as RouteError)?.status !== 403) return null
+    let projectData: JsonRecord
+    try {
+      const detail = await gitlab.request(instanceId, { path: `/projects/${projectSegment(project)}`, timeoutMs: 10000 })
+      projectData = (detail.data as JsonRecord) ?? {}
+    } catch {
+      // The project itself is unreadable, so the 403 is not about CI settings.
+      return null
+    }
+    if (
+      projectData.builds_access_level === 'disabled'
+      || projectData.jobs_enabled === false
+      || projectData.pipelines_enabled === false
+    ) {
+      return 'ci_disabled'
+    }
+    if (projectData.empty_repo === true) return 'empty_repo'
+    return null
+  }
+
   async function dispatch(action: string, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const query = url.searchParams
     const method = req.method ?? 'GET'
@@ -445,17 +475,25 @@ export function createRoutes({ ctx, store, gitlab, version }: RoutesDeps): Route
 
     if (action === 'pipelines' && method === 'GET') {
       const project = requiredQuery(query, 'path')
-      const result = await gitlab.request(instanceId, {
-        path: `/projects/${projectSegment(project)}/pipelines`,
-        query: {
-          per_page: 30,
-          page: query.get('page') ?? '1',
-          status: query.get('status') ?? '',
-          ref: query.get('ref') ?? '',
-          order_by: 'id',
-          sort: 'desc',
-        },
-      })
+      let result
+      try {
+        result = await gitlab.request(instanceId, {
+          path: `/projects/${projectSegment(project)}/pipelines`,
+          query: {
+            per_page: 30,
+            page: query.get('page') ?? '1',
+            status: query.get('status') ?? '',
+            ref: query.get('ref') ?? '',
+            order_by: 'id',
+            sort: 'desc',
+          },
+        })
+      } catch (error) {
+        const reason = await ciOffReason(instanceId, project, error)
+        if (!reason) throw error
+        ok(res, { items: [], total: 0, page: 1, nextPage: null, ciDisabled: true, reason })
+        return
+      }
       ok(res, pageOf(result))
       return
     }

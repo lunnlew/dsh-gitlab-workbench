@@ -55,6 +55,13 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
     [instanceId, projectPath],
   )
   const project = detail.data?.project
+  // A project with CI/CD switched off cannot show pipelines, so its tab would
+  // hold nothing but an explanation; the overview says it in one line instead.
+  const ciOff = Boolean(project) && (
+    project.builds_access_level === 'disabled'
+    || project.jobs_enabled === false
+    || project.pipelines_enabled === false
+  )
   const namespace = projectPath.includes('/') ? projectPath.slice(0, projectPath.lastIndexOf('/')) : instanceLabel
 
   // Restore the remembered ref once the project is known: a branch, a tag, or
@@ -100,6 +107,10 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
     return () => document.removeEventListener('mousedown', onDocument)
   }, [cloneOpen])
 
+  useEffect(() => {
+    if (ciOff && tab === 'pipelines') setTab('overview')
+  }, [ciOff, tab])
+
   const copyCloneUrl = async (label: string, url: string) => {
     try {
       await navigator.clipboard.writeText(url)
@@ -126,13 +137,16 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
   ]
   if (ref && !refOptions.some((option) => option.name === ref)) refOptions.splice(1, 0, { name: ref, kind: 'branch' })
 
-  const tabs: Array<{ id: TabId; label: string }> = [
+  // A project with CI/CD switched off cannot show pipelines, so its tab would
+  // hold nothing but an explanation; the overview says it in one line instead.
+  const allTabs: Array<{ id: TabId; label: string }> = [
     { id: 'overview', label: t('overview') },
     { id: 'pipelines', label: t('pipeline') },
     { id: 'mrs', label: t('mergeRequests') },
     { id: 'issues', label: t('issues') },
     { id: 'files', label: t('files') },
   ]
+  const tabs = allTabs.filter((item) => item.id !== 'pipelines' || !ciOff)
 
   return h(
     'main',
@@ -237,10 +251,10 @@ export function ProjectView({ instanceId, projectPath, instanceLabel, onBack }: 
             project,
             refName: ref,
             counts: { openMergeRequests: detail.data?.openMergeRequests },
-            onOpenPipelines: () => setTab('pipelines'),
+            onOpenPipelines: ciOff ? undefined : () => setTab('pipelines'),
           })
         : tab === 'pipelines'
-          ? h(PipelinesTab, { instanceId, projectPath, refName: ref })
+          ? h(PipelinesTab, { instanceId, projectPath, refName: ref, projectWebUrl: project.web_url })
           : tab === 'mrs'
             ? h(MergeRequestsTab, { instanceId, projectPath })
             : tab === 'issues'

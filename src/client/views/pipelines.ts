@@ -9,6 +9,7 @@ import { I } from '../icons'
 import { t } from '../i18n'
 import { fmtDuration, isActivePipelineStatus, pipelineDuration, relTime, shortSha, statusText, useAsync, usePolling } from '../util'
 import { Button, Empty, ErrorNote, IconButton, MetaGrid, Spinner, Status } from '../ui'
+import type { Page } from '../types'
 
 interface Stage {
   stage: string
@@ -232,7 +233,17 @@ export function PipelineDetail({ instanceId, projectPath, pipelineId }: { instan
   )
 }
 
-export function PipelinesTab({ instanceId, projectPath, refName }: { instanceId: string; projectPath: string; refName: string }) {
+export function PipelinesTab({
+  instanceId,
+  projectPath,
+  refName,
+  projectWebUrl,
+}: {
+  instanceId: string
+  projectPath: string
+  refName: string
+  projectWebUrl?: string
+}) {
   const [status, setStatus] = useState('')
   const [selected, setSelected] = useState<number | null>(null)
   const [allRefs, setAllRefs] = useState(false)
@@ -241,10 +252,16 @@ export function PipelinesTab({ instanceId, projectPath, refName }: { instanceId:
     setAllRefs(false)
   }, [refName])
 
-  const list = useAsync(
+  const list = useAsync<Page<any>>(
     () => api('pipelines', { query: { id: instanceId, path: projectPath, status, ref: allRefs ? '' : refName } }),
     [instanceId, projectPath, status, refName, allRefs],
   )
+
+  // The host reports a project whose CI/CD is switched off (or whose repository
+  // is still empty) as an empty list with a reason, not as a token error.
+  const ciOff = list.data?.ciDisabled === true
+  const offTitle = list.data?.reason === 'empty_repo' ? t('emptyRepo') : t('ciOff')
+  const offHint = list.data?.reason === 'empty_repo' ? t('emptyRepoHint') : t('ciOffHint')
 
   usePolling(
     list.reload,
@@ -276,35 +293,39 @@ export function PipelinesTab({ instanceId, projectPath, refName }: { instanceId:
       h(
         'div',
         { className: 'gw-toolbar' },
-        h(
-          'div',
-          { className: 'gw-seg', role: 'tablist', 'aria-label': t('pipeline') },
-          filters.map((filter) =>
-            h(
+        ciOff
+          ? null
+          : h(
+              'div',
+              { className: 'gw-seg', role: 'tablist', 'aria-label': t('pipeline') },
+              filters.map((filter) =>
+                h(
+                  'button',
+                  {
+                    key: filter.id || 'all',
+                    type: 'button',
+                    role: 'tab',
+                    'aria-selected': status === filter.id,
+                    className: status === filter.id ? 'is-active' : '',
+                    onClick: () => setStatus(filter.id),
+                  },
+                  filter.label,
+                ),
+              ),
+            ),
+        h('span', { className: 'gw-top-spacer' }),
+        ciOff
+          ? null
+          : h(
               'button',
               {
-                key: filter.id || 'all',
                 type: 'button',
-                role: 'tab',
-                'aria-selected': status === filter.id,
-                className: status === filter.id ? 'is-active' : '',
-                onClick: () => setStatus(filter.id),
+                className: `gw-chip${allRefs ? ' is-active' : ''}`,
+                onClick: () => setAllRefs((current) => !current),
+                title: allRefs ? t('allBranches') : refName || t('allBranches'),
               },
-              filter.label,
+              allRefs ? t('allBranches') : refName || t('allBranches'),
             ),
-          ),
-        ),
-        h('span', { className: 'gw-top-spacer' }),
-        h(
-          'button',
-          {
-            type: 'button',
-            className: `gw-chip${allRefs ? ' is-active' : ''}`,
-            onClick: () => setAllRefs((current) => !current),
-            title: allRefs ? t('allBranches') : refName || t('allBranches'),
-          },
-          allRefs ? t('allBranches') : refName || t('allBranches'),
-        ),
         h(IconButton, { label: t('refresh'), onClick: list.reload }, h(I.refresh, { size: 15 })),
       ),
       h(ErrorNote, { error: list.error, onRetry: list.reload }),
@@ -312,7 +333,28 @@ export function PipelinesTab({ instanceId, projectPath, refName }: { instanceId:
         'div',
         { className: 'gw-scroll-y' },
         list.loading && !list.data ? h(Spinner) : null,
-        list.data && list.data.items.length === 0
+        list.data && list.data.ciDisabled
+          ? h(Empty, {
+              icon: h(I.terminal, { size: 18 }),
+              title: offTitle,
+              hint: offHint,
+              action:
+                projectWebUrl
+                  ? h(
+                      'a',
+                      {
+                        className: 'gw-btn is-ghost',
+                        href: `${projectWebUrl}/-/settings/general`,
+                        target: '_blank',
+                        rel: 'noreferrer noopener',
+                      },
+                      t('ciOffAction'),
+                      h(I.external, { size: 12 }),
+                    )
+                  : null,
+            })
+          : null,
+        list.data && !list.data.ciDisabled && list.data.items.length === 0
           ? h(Empty, {
               title: t('noPipelines'),
               hint: refName && !allRefs ? t('noPipelinesBranch', { ref: refName }) : t('noPipelinesHint'),

@@ -9,6 +9,7 @@ import { I } from '../icons'
 import { t } from '../i18n'
 import { isActivePipelineStatus, pipelineDuration, relTime, shortSha, useAsync, usePolling } from '../util'
 import { Button, ErrorNote, SectionHead, Spinner, Status } from '../ui'
+import type { Page } from '../types'
 
 export interface OverviewTabProps {
   instanceId: string
@@ -16,11 +17,11 @@ export interface OverviewTabProps {
   project: any
   counts: { openMergeRequests?: number | null }
   refName: string
-  onOpenPipelines: () => void
+  onOpenPipelines?: () => void
 }
 
 export function OverviewTab({ instanceId, projectPath, project, counts, refName, onOpenPipelines }: OverviewTabProps) {
-  const pipelines = useAsync(
+  const pipelines = useAsync<Page<any>>(
     () => api('pipelines', { query: { id: instanceId, path: projectPath, ref: refName } }),
     [instanceId, projectPath, refName],
   )
@@ -74,19 +75,29 @@ export function OverviewTab({ instanceId, projectPath, project, counts, refName,
     h(
       'section',
       { className: 'gw-block' },
-      h(SectionHead, { title: t('recentPipelines'), link: `${t('allPipelines')} →`, onLink: onOpenPipelines }),
+      h(SectionHead, {
+        title: t('recentPipelines'),
+        link: onOpenPipelines ? `${t('allPipelines')} →` : undefined,
+        onLink: onOpenPipelines,
+      }),
       h(ErrorNote, { error: pipelines.error, onRetry: pipelines.reload }),
       pipelines.loading && !pipelines.data ? h(Spinner) : null,
       h(
         'div',
         { className: 'gw-pipe-mini' },
-        pipelines.data && pipelines.data.items.length === 0
+        pipelines.data && pipelines.data.ciDisabled
           ? h(
               'div',
               { className: 'gw-muted', style: { padding: '14px 16px' } },
-              refName ? t('noPipelinesBranch', { ref: refName }) : t('noPipelines'),
+              pipelines.data.reason === 'empty_repo' ? t('emptyRepoHint') : t('ciOffHint'),
             )
-          : (pipelines.data?.items ?? []).slice(0, 3).map((pipeline: any) =>
+          : pipelines.data && pipelines.data.items.length === 0
+            ? h(
+                'div',
+                { className: 'gw-muted', style: { padding: '14px 16px' } },
+                refName ? t('noPipelinesBranch', { ref: refName }) : t('noPipelines'),
+              )
+            : (pipelines.data?.items ?? []).slice(0, 3).map((pipeline: any) =>
               h(
                 'div',
                 { key: pipeline.id, className: 'gw-list-row' },

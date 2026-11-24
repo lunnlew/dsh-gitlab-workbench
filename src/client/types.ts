@@ -29,6 +29,9 @@ export interface Page<T = any> {
   total: number | null
   page: number
   nextPage: number | null
+  /** Set when GitLab refuses the pipelines endpoint because the project has none. */
+  ciDisabled?: boolean
+  reason?: 'ci_disabled' | 'empty_repo'
 }
 
 export interface ProjectDetailResponse {

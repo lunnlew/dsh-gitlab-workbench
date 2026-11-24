@@ -55,7 +55,78 @@ const PROJECTS = [
     avatar_url: '',
     namespace: { id: 1, name: 'demo', path: 'demo', kind: 'group', full_path: 'demo' },
   },
+  {
+    // GitLab answers the pipelines endpoint with 403 for these three, exactly
+    // like a token without the scope; the project payload is what tells them
+    // apart. Each one flags a different reason.
+    id: 44,
+    name: 'ci-off',
+    path: 'ci-off',
+    path_with_namespace: 'demo/ci-off',
+    name_with_namespace: 'Demo / ci-off',
+    description: 'CI/CD is switched off under the project settings.',
+    default_branch: 'main',
+    visibility: 'private',
+    archived: false,
+    builds_access_level: 'disabled',
+    jobs_enabled: false,
+    star_count: 0,
+    forks_count: 0,
+    open_issues_count: 0,
+    last_activity_at: iso(90),
+    created_at: iso(40000),
+    web_url: `http://127.0.0.1:${PORT}/demo/ci-off`,
+    avatar_url: '',
+    namespace: { id: 1, name: 'demo', path: 'demo', kind: 'group', full_path: 'demo' },
+  },
+  {
+    id: 46,
+    name: 'empty',
+    path: 'empty',
+    path_with_namespace: 'demo/empty',
+    name_with_namespace: 'Demo / empty',
+    description: 'A repository without a commit yet.',
+    default_branch: 'main',
+    visibility: 'private',
+    archived: false,
+    empty_repo: true,
+    builds_access_level: 'enabled',
+    jobs_enabled: true,
+    star_count: 0,
+    forks_count: 0,
+    open_issues_count: 0,
+    last_activity_at: iso(30),
+    created_at: iso(50000),
+    web_url: `http://127.0.0.1:${PORT}/demo/empty`,
+    avatar_url: '',
+    namespace: { id: 1, name: 'demo', path: 'demo', kind: 'group', full_path: 'demo' },
+  },
+  {
+    // Readable project, unreadable pipelines: the 403 has no CI explanation,
+    // so it must stay a permission error.
+    id: 45,
+    name: 'locked',
+    path: 'locked',
+    path_with_namespace: 'demo/locked',
+    name_with_namespace: 'Demo / locked',
+    description: 'Pipelines stay forbidden for the token.',
+    default_branch: 'main',
+    visibility: 'private',
+    archived: false,
+    builds_access_level: 'enabled',
+    star_count: 0,
+    forks_count: 0,
+    open_issues_count: 0,
+    last_activity_at: iso(300),
+    created_at: iso(45000),
+    web_url: `http://127.0.0.1:${PORT}/demo/locked`,
+    avatar_url: '',
+    namespace: { id: 1, name: 'demo', path: 'demo', kind: 'group', full_path: 'demo' },
+  },
 ]
+
+/** Projects whose pipelines endpoint answers 403 (CI off, empty, or forbidden). */
+const PIPELINES_FORBIDDEN = new Set([44, 45, 46])
 
 const PIPELINES = [
   { id: 9001, iid: 101, project_id: 42, status: 'failed', source: 'push', ref: 'main', sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678', created_at: iso(30), updated_at: iso(22), web_url: `http://127.0.0.1:${PORT}/demo/project/-/pipelines/9001`, user: { username: 'alice', name: 'Alice Chen', avatar_url: '' } },
@@ -276,6 +347,7 @@ const server = http.createServer((req, res) => {
     }
 
     if (rest === '/pipelines') {
+      if (PIPELINES_FORBIDDEN.has(project.id)) return sendJson(res, 403, { message: '403 Forbidden' })
       const status = url.searchParams.get('status') ?? ''
       return list(PIPELINES.filter((p) => !status || p.status === status), 30)
     }
