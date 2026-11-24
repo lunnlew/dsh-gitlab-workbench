@@ -1,6 +1,6 @@
 {
   "name": "@karoy/dsh-gitlab-workbench",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "type": "module",
   "description": "GitLab workbench: a left-sidebar entry and a global panel for several self-managed GitLab instances, focused on projects and CI pipelines.",
